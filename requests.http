@@ -1,0 +1,25 @@
+### Create participant
+POST http://localhost:8081/api/participants
+Content-Type: application/json
+
+{
+  "telegramUsername": "abror",
+  "firstName": "Abror"
+}
+
+### Get all participants
+GET http://localhost:8081/api/participants
+
+### Create Running habit
+POST http://localhost:8081/api/participants/2/habits
+Content-Type: application/json
+
+{
+  "name": "Reading",
+  "description": "Read min 10 pages a day regularly"
+}
+
+
+### Get participant habits
+GET http://localhost:8081/api/participants/2/habits
+Content-Type: application/json
