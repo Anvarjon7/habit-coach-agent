@@ -5,6 +5,7 @@ import com.example.habit_coach_agent.repository.ParticipantRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ParticipantService {
@@ -22,5 +23,9 @@ public class ParticipantService {
 
     public List<Participant> getAllParticipants() {
         return participantRepository.findAll();
+    }
+
+    public Optional<Participant> getParticipantById(Long id) {
+        return participantRepository.findById(id);
     }
 }

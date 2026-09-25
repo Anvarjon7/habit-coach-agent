@@ -3,6 +3,7 @@ package com.example.habit_coach_agent.controller;
 import com.example.habit_coach_agent.entity.Participant;
 import com.example.habit_coach_agent.service.ParticipantService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -24,5 +25,12 @@ public class ParticipantController {
     @GetMapping
     public List<Participant> getAllParticipants() {
         return participantService.getAllParticipants();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Participant> getParticipantById(@PathVariable Long id) {
+        return participantService.getParticipantById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
