@@ -1,5 +1,4 @@
-# Human final owner
+# Dedicated reviewer agent
 #
-# Temporary governance setup: until a dedicated reviewer/bot identity exists,
-# the repository owner remains the required code owner for all paths.
-* @Anvarjon7
+# Human remains the final merge authority.
+* @agent-Ilon
