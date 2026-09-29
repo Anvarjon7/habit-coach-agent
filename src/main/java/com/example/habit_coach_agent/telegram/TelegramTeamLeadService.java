@@ -45,6 +45,7 @@ public class TelegramTeamLeadService {
     @Scheduled(fixedDelay = 1000)
     public void pollUpdates() {
         if (token.isBlank()) {
+            log.warn("Telegram Team Lead is disabled: TELEGRAM_BOT_TOKEN is not set.");
             return;
         }
 
