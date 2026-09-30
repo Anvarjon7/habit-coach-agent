@@ -12,13 +12,8 @@ import java.util.Set;
 public class AgentRegistry {
 
     private final Map<String, AgentDefinition> agents;
-    private final Map<String, List<String>> projectAssignments;
-
-    public AgentRegistry(AgentRegistryProperties properties) {
+    public AgentRegistry() {
         this.agents = createAgents();
-        this.projectAssignments = properties.getProjects() == null
-                ? Map.of()
-                : Map.copyOf(properties.getProjects());
     }
 
     public AgentDefinition getAgent(String agentId) {
@@ -31,22 +26,6 @@ public class AgentRegistry {
 
     public List<AgentDefinition> getAllAgents() {
         return List.copyOf(agents.values());
-    }
-
-    public List<AgentDefinition> getActiveAgents(String projectId) {
-        List<String> agentIds = projectAssignments.get(projectId);
-        if (agentIds == null) {
-            throw new IllegalArgumentException("Unknown project: " + projectId);
-        }
-
-        return agentIds.stream()
-                .map(this::getAgent)
-                .toList();
-    }
-
-    public boolean isActive(String projectId, String agentId) {
-        return getActiveAgents(projectId).stream()
-                .anyMatch(agent -> agent.id().equals(agentId));
     }
 
     private Map<String, AgentDefinition> createAgents() {

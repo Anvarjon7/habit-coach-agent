@@ -10,7 +10,7 @@ class AgentRegistryTest {
 
     @Test
     void exposesFrontendAgentForFutureProjects() {
-        AgentRegistry registry = new AgentRegistry(new AgentRegistryProperties());
+        AgentRegistry registry = new AgentRegistry();
 
         AgentDefinition frontend = registry.getAgent("frontend");
 
@@ -20,40 +20,24 @@ class AgentRegistryTest {
     }
 
     @Test
-    void returnsOnlyAgentsAssignedToProject() {
-        AgentRegistryProperties properties = new AgentRegistryProperties();
-        properties.setProjects(java.util.Map.of(
-                "web-project", List.of("zuck", "frontend", "qa")));
+    void exposesCompleteProjectIndependentTeam() {
+        AgentRegistry registry = new AgentRegistry();
 
-        AgentRegistry registry = new AgentRegistry(properties);
+        List<String> ids = registry.getAllAgents().stream()
+                .map(AgentDefinition::id)
+                .toList();
 
-        List<AgentDefinition> agents = registry.getActiveAgents("web-project");
-
-        assertEquals(List.of("zuck", "frontend", "qa"),
-                agents.stream().map(AgentDefinition::id).toList());
-        assertTrue(registry.isActive("web-project", "frontend"));
-        assertFalse(registry.isActive("web-project", "backend"));
+        assertEquals(List.of("zuck", "backend", "frontend", "qa", "platform", "product", "research", "ilon"), ids);
     }
 
     @Test
     void rejectsUnknownAgent() {
-        AgentRegistry registry = new AgentRegistry(new AgentRegistryProperties());
+        AgentRegistry registry = new AgentRegistry();
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> registry.getAgent("does-not-exist"));
 
         assertEquals("Unknown agent: does-not-exist", exception.getMessage());
-    }
-
-    @Test
-    void rejectsUnknownProject() {
-        AgentRegistry registry = new AgentRegistry(new AgentRegistryProperties());
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> registry.getActiveAgents("does-not-exist"));
-
-        assertEquals("Unknown project: does-not-exist", exception.getMessage());
     }
 }

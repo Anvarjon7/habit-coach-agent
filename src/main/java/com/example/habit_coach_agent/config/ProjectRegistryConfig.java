@@ -1,10 +1,9 @@
 package com.example.habit_coach_agent.config;
 
-import com.example.habit_coach_agent.agent.AgentRegistryProperties;
+import com.example.habit_coach_agent.project.ProjectRegistryProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(AgentRegistryProperties.class)
-public class AgentRegistryConfig {
-}
+@EnableConfigurationProperties(ProjectRegistryProperties.class)
+public class ProjectRegistryConfig {}

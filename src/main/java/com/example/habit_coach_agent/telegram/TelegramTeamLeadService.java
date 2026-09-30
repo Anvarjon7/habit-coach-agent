@@ -1,5 +1,8 @@
 package com.example.habit_coach_agent.telegram;
 
+import com.example.habit_coach_agent.agent.AgentDefinition;
+import com.example.habit_coach_agent.team.TeamCoordinationResult;
+import com.example.habit_coach_agent.team.TeamCoordinator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -21,31 +24,36 @@ public class TelegramTeamLeadService {
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final TeamCoordinator coordinator;
     private final String token;
     private final long allowedUserId;
     private final long allowedChatId;
+    private final boolean enabled;
     private final boolean naturalLanguageEnabled;
 
     private long updateOffset = 0;
 
     public TelegramTeamLeadService(
             ObjectMapper objectMapper,
+            TeamCoordinator coordinator,
             @Value("${TELEGRAM_BOT_TOKEN:}") String token,
             @Value("${TELEGRAM_ALLOWED_USER_ID:0}") long allowedUserId,
             @Value("${TELEGRAM_ALLOWED_CHAT_ID:0}") long allowedChatId,
+            @Value("${telegram.bot.enabled:true}") boolean enabled,
             @Value("${TELEGRAM_NATURAL_LANGUAGE:false}") boolean naturalLanguageEnabled) {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newHttpClient();
+        this.coordinator = coordinator;
         this.token = token;
         this.allowedUserId = allowedUserId;
         this.allowedChatId = allowedChatId;
+        this.enabled = enabled;
         this.naturalLanguageEnabled = naturalLanguageEnabled;
     }
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelayString = "${telegram.bot.polling-delay-ms:1000}")
     public void pollUpdates() {
-        if (token.isBlank()) {
-            log.warn("Telegram Team Lead is disabled: TELEGRAM_BOT_TOKEN is not set.");
+        if (!enabled || token.isBlank()) {
             return;
         }
 
@@ -53,10 +61,7 @@ public class TelegramTeamLeadService {
             String url = "https://api.telegram.org/bot" + token
                     + "/getUpdates?timeout=10&limit=20&offset=" + updateOffset;
 
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .GET()
-                    .build();
-
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
             HttpResponse<String> response = httpClient.send(
                     request, HttpResponse.BodyHandlers.ofString());
 
@@ -79,17 +84,13 @@ public class TelegramTeamLeadService {
 
     void handleUpdate(JsonNode update) throws Exception {
         JsonNode message = update.path("message");
-        if (message.isMissingNode() || !message.has("text")) {
-            return;
-        }
+        if (message.isMissingNode() || !message.has("text")) return;
 
         long chatId = message.path("chat").path("id").asLong();
         long userId = message.path("from").path("id").asLong();
         String text = message.path("text").asText().trim();
 
-        if (allowedChatId != 0 && allowedChatId != chatId) {
-            return;
-        }
+        if (allowedChatId != 0 && allowedChatId != chatId) return;
 
         if (text.equals("/whoami")) {
             sendMessage(chatId, "Your Telegram user ID is: " + userId
@@ -105,48 +106,49 @@ public class TelegramTeamLeadService {
 
         if (text.equals("/start") || text.equals("/help")) {
             sendMessage(chatId, """
-                    🤖 Team Lead is online.
+                    🤖 Software Engineering Team is online.
 
                     Commands:
-                    /task <description> — submit an engineering task
+                    /task <description> — bring engineering work to the team
                     /whoami — show your Telegram user/chat IDs
                     /help — show this help
 
-                    Stage 1 currently records and acknowledges tasks.
-                    GitHub Issue creation and coding-agent delegation come next.
+                    The team works across projects. The current project is selected by the project context.
                     """);
             return;
         }
 
         if (text.startsWith("/task ")) {
-            acknowledgeTask(chatId, text.substring(6).trim());
+            coordinateTask(chatId, text.substring(6).trim());
             return;
         }
 
         if (naturalLanguageEnabled && !text.startsWith("/")) {
-            acknowledgeTask(chatId, text);
+            coordinateTask(chatId, text);
         }
     }
 
-    private void acknowledgeTask(long chatId, String task) throws Exception {
+    private void coordinateTask(long chatId, String task) throws Exception {
         if (task.isBlank()) {
-            sendMessage(chatId, "Please describe the engineering task after /task.");
+            sendMessage(chatId, "Please describe the engineering work after /task.");
             return;
         }
 
-        sendMessage(chatId, """
-                📋 Task received by Team Lead.
+        TeamCoordinationResult result = coordinator.coordinate(task);
+        StringBuilder message = new StringBuilder()
+                .append("📋 Team Lead received the request.\n\n")
+                .append("Project: ").append(result.project().name()).append("\n")
+                .append("Work status: ").append(result.workItem().status()).append("\n")
+                .append("Participants: ");
 
-                %s
+        for (int i = 0; i < result.participants().size(); i++) {
+            AgentDefinition agent = result.participants().get(i);
+            if (i > 0) message.append(", ");
+            message.append(agent.name());
+        }
 
-                Current workflow:
-                1. Team Lead receives task
-                2. Next stage: create GitHub Issue
-                3. Next stage: assign coding agent
-                4. Next stage: PR → agent-Ilon review → CI → human approval
-
-                No code has been changed yet.
-                """.formatted(task));
+        message.append("\n\nNo code has been changed yet.");
+        sendMessage(chatId, message.toString());
     }
 
     private void sendMessage(long chatId, String text) throws Exception {
