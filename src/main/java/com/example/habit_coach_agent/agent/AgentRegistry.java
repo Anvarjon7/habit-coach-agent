@@ -63,22 +63,22 @@ public class AgentRegistry {
                 Set.of("java", "spring-boot", "postgresql", "rest-api", "backend-tests")));
 
         register(definitions, new AgentDefinition(
-                "frontend", "Frontend Engineer", AgentRole.FRONTEND,
+                "frontend", "Pixel", AgentRole.FRONTEND,
                 "Owns web and mobile UI, frontend architecture, API integration, and frontend tests.",
                 Set.of("react", "nextjs", "typescript", "flutter", "api-integration", "frontend-tests")));
 
         register(definitions, new AgentDefinition(
-                "qa", "QA Engineer", AgentRole.QA,
+                "qa", "Sherlock", AgentRole.QA,
                 "Owns acceptance criteria, test strategy, edge cases, and regression checks.",
                 Set.of("test-planning", "api-testing", "edge-cases", "regression")));
 
         register(definitions, new AgentDefinition(
-                "platform", "Platform Engineer", AgentRole.PLATFORM,
+                "platform", "Atlas", AgentRole.PLATFORM,
                 "Owns infrastructure, Docker, CI/CD, configuration, security, and operations.",
                 Set.of("docker", "ci-cd", "configuration", "security", "operations")));
 
         register(definitions, new AgentDefinition(
-                "product", "Product Engineer", AgentRole.PRODUCT,
+                "product", "Mira", AgentRole.PRODUCT,
                 "Clarifies requirements, user value, scope, and product behavior.",
                 Set.of("requirements", "acceptance-criteria", "product-design")));
 
