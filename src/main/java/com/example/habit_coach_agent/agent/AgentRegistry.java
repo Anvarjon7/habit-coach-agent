@@ -58,7 +58,7 @@ public class AgentRegistry {
                 Set.of("planning", "task-decomposition", "coordination", "status")));
 
         register(definitions, new AgentDefinition(
-                "backend", "Backend Engineer", AgentRole.BACKEND,
+                "backend", "Mr.500", AgentRole.BACKEND,
                 "Owns backend services, APIs, domain logic, databases, and backend tests.",
                 Set.of("java", "spring-boot", "postgresql", "rest-api", "backend-tests")));
 
@@ -83,7 +83,7 @@ public class AgentRegistry {
                 Set.of("requirements", "acceptance-criteria", "product-design")));
 
         register(definitions, new AgentDefinition(
-                "research", "Research Agent", AgentRole.RESEARCH,
+                "research", "X", AgentRole.RESEARCH,
                 "Researches technical options, libraries, APIs, documentation, and alternatives.",
                 Set.of("technical-research", "documentation", "architecture-research")));
 
