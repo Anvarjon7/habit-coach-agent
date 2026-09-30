@@ -1,7 +1,6 @@
 package com.example.habit_coach_agent.team;
 
 import com.example.habit_coach_agent.agent.AgentRegistry;
-import com.example.habit_coach_agent.agent.AgentRegistryProperties;
 import com.example.habit_coach_agent.project.CurrentProjectContext;
 import com.example.habit_coach_agent.project.Project;
 import com.example.habit_coach_agent.project.ProjectRegistry;
@@ -25,9 +24,7 @@ class TeamCoordinatorTest {
         ProjectRegistry projectRegistry = new ProjectRegistry(projectProperties);
         CurrentProjectContext context = new CurrentProjectContext(projectRegistry, project.id());
 
-        AgentRegistryProperties agentProperties = new AgentRegistryProperties();
-        agentProperties.setProjects(Map.of());
-        AgentRegistry registry = new AgentRegistry(agentProperties);
+        AgentRegistry registry = new AgentRegistry();
 
         TeamCoordinator coordinator = new TeamCoordinator(new EngineeringTeam(registry), context);
         TeamCoordinationResult result = coordinator.coordinate(
