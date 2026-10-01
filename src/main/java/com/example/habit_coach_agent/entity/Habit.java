@@ -1,6 +1,7 @@
 package com.example.habit_coach_agent.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "habits")
@@ -15,6 +16,12 @@ public class Habit {
     private String description;
 
     private boolean active;
+
+    @Column(name = "current_streak")
+    private int currentStreak = 0;
+
+    @Column(name = "last_check_in_date")
+    private LocalDate lastCheckInDate;
 
     @ManyToOne
     @JoinColumn(name = "participant_id")
@@ -50,6 +57,22 @@ public class Habit {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public int getCurrentStreak() {
+        return currentStreak;
+    }
+
+    public void setCurrentStreak(int currentStreak) {
+        this.currentStreak = currentStreak;
+    }
+
+    public LocalDate getLastCheckInDate() {
+        return lastCheckInDate;
+    }
+
+    public void setLastCheckInDate(LocalDate lastCheckInDate) {
+        this.lastCheckInDate = lastCheckInDate;
     }
 
     public Participant getParticipant() {
