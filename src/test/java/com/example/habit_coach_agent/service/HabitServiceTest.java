@@ -1,127 +1,80 @@
 package com.example.habit_coach_agent.service;
 
-import com.example.habit_coach_agent.entity.Habit;
-import com.example.habit_coach_agent.entity.HabitCheckIn;
-import com.example.habit_coach_agent.entity.Participant;
-import com.example.habit_coach_agent.repository.HabitCheckInRepository;
-import com.example.habit_coach_agent.repository.HabitRepository;
-import com.example.habit_coach_agent.repository.ParticipantRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDate;
-import java.util.Optional;
-
+import com.example.habit_coach_agent.entity.*;
+import com.example.habit_coach_agent.repository.*;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import java.time.*;
+import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@Import(HabitServiceTest.FixedTime.class)
 class HabitServiceTest {
-
-    @Mock
-    private HabitRepository habitRepository;
-
-    @Mock
-    private ParticipantRepository participantRepository;
-
-    @Mock
-    private HabitCheckInRepository habitCheckInRepository;
-
-    private HabitService habitService;
-    private Participant participant;
-    private Habit habit;
-
-    @BeforeEach
-    void setUp() {
-        habitService = new HabitService(habitRepository, participantRepository, habitCheckInRepository);
-
-        participant = new Participant();
-        participant.setId(1L);
-        participant.setFirstName("Anwar");
-
-        habit = new Habit();
-        habit.setId(10L);
-        habit.setName("Morning Running");
-        habit.setParticipant(participant);
-        habit.setCurrentStreak(0);
-        habit.setLastCheckInDate(null);
-
-        lenient().when(habitRepository.findById(10L)).thenReturn(Optional.of(habit));
-        lenient().when(habitRepository.save(any(Habit.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        lenient().when(habitCheckInRepository.save(any(HabitCheckIn.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    @TestConfiguration
+    static class FixedTime {
+        @Bean @Primary Clock testClock() { return Clock.fixed(Instant.parse("2026-11-02T23:30:00Z"), ZoneOffset.UTC); }
     }
+    @Autowired HabitService service;
+    @Autowired ParticipantRepository participants;
+    @Autowired HabitRepository habits;
+    @Autowired HabitCheckInRepository checkIns;
+    Participant participant;
+    Habit habit;
+    final LocalDate today = LocalDate.of(2026,11,2);
 
-    @Test
-    void initialCheckInStartsStreakAtOne() {
-        LocalDate today = LocalDate.of(2026, 10, 1);
-
-        HabitCheckIn checkIn = habitService.recordCheckIn(1L, 10L, today, 1);
-
-        assertNotNull(checkIn);
-        assertEquals(1, habit.getCurrentStreak());
-        assertEquals(today, habit.getLastCheckInDate());
-        verify(habitRepository, times(1)).save(habit);
+    @BeforeEach void setup() {
+        Participant p = new Participant(); p.setFirstName("Reader"); p.setActive(true);
+        participant = participants.save(p);
+        Habit h = new Habit(); h.setName("Reading");
+        habit = service.createHabit(participant.getId(),h);
     }
-
-    @Test
-    void consecutiveDaysIncrementStreak() {
-        LocalDate day1 = LocalDate.of(2026, 10, 1);
-        LocalDate day2 = LocalDate.of(2026, 10, 2);
-        LocalDate day3 = LocalDate.of(2026, 10, 3);
-
-        habitService.recordCheckIn(1L, 10L, day1, 1);
-        assertEquals(1, habit.getCurrentStreak());
-
-        habitService.recordCheckIn(1L, 10L, day2, 1);
-        assertEquals(2, habit.getCurrentStreak());
-        assertEquals(day2, habit.getLastCheckInDate());
-
-        habitService.recordCheckIn(1L, 10L, day3, 1);
-        assertEquals(3, habit.getCurrentStreak());
-        assertEquals(day3, habit.getLastCheckInDate());
+    @Test void repeatedCheckInSetsAbsoluteTotal() {
+        var first = service.recordCheckIn(participant.getId(),habit.getId(),today,10);
+        var second = service.recordCheckIn(participant.getId(),habit.getId(),today,10);
+        assertEquals(first.getId(),second.getId());
+        assertEquals(10,second.getValue());
+        assertEquals(1,service.getHabitCheckIns(participant.getId(),habit.getId()).size());
     }
-
-    @Test
-    void sameDayCheckInIsIdempotentForStreak() {
-        LocalDate day1 = LocalDate.of(2026, 10, 1);
-
-        habitService.recordCheckIn(1L, 10L, day1, 1);
-        assertEquals(1, habit.getCurrentStreak());
-
-        // Check in second time on same day
-        habitService.recordCheckIn(1L, 10L, day1, 1);
-        assertEquals(1, habit.getCurrentStreak(), "Same-day check-in should not increment streak");
-        assertEquals(day1, habit.getLastCheckInDate());
+    @Test void backfillRecalculatesConsecutiveStreak() {
+        service.recordCheckIn(participant.getId(),habit.getId(),today.minusDays(2),1);
+        service.recordCheckIn(participant.getId(),habit.getId(),today,1);
+        assertEquals(1,service.getHabit(participant.getId(),habit.getId()).getCurrentStreak());
+        service.recordCheckIn(participant.getId(),habit.getId(),today.minusDays(1),1);
+        assertEquals(3,service.getHabit(participant.getId(),habit.getId()).getCurrentStreak());
     }
-
-    @Test
-    void skippingDaysResetsStreakToOne() {
-        LocalDate day1 = LocalDate.of(2026, 10, 1);
-        LocalDate day2 = LocalDate.of(2026, 10, 2);
-        LocalDate day4 = LocalDate.of(2026, 10, 4); // skipped Oct 3
-
-        habitService.recordCheckIn(1L, 10L, day1, 1);
-        habitService.recordCheckIn(1L, 10L, day2, 1);
-        assertEquals(2, habit.getCurrentStreak());
-
-        // Check in after gap
-        habitService.recordCheckIn(1L, 10L, day4, 1);
-        assertEquals(1, habit.getCurrentStreak(), "Skipping a day must reset streak to 1");
-        assertEquals(day4, habit.getLastCheckInDate());
+    @Test void oldHistoryDoesNotShowAnActiveStreak() {
+        service.recordCheckIn(participant.getId(),habit.getId(),today.minusDays(4),1);
+        var result = service.getHabit(participant.getId(),habit.getId());
+        assertEquals(0,result.getCurrentStreak());
+        assertEquals(today.minusDays(4),result.getLastCheckInDate());
     }
-
-    @Test
-    void rejectsCheckInWhenHabitBelongsToAnotherParticipant() {
-        LocalDate today = LocalDate.of(2026, 10, 1);
-
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                () -> habitService.recordCheckIn(99L, 10L, today, 1));
-
-        assertTrue(exception.getMessage().contains("does not belong to specified participant"));
+    @Test void futureDatesAndInvalidValuesAreRejected() {
+        assertThrows(ResponseStatusException.class,()->service.recordCheckIn(participant.getId(),habit.getId(),today.plusDays(1),1));
+        assertThrows(ResponseStatusException.class,()->service.recordCheckIn(participant.getId(),habit.getId(),today,0));
+        assertThrows(ResponseStatusException.class,()->service.recordCheckIn(participant.getId(),habit.getId(),today,-1));
+        assertTrue(service.getHabitCheckIns(participant.getId(),habit.getId()).isEmpty());
+    }
+    @Test void localDayCanBeAheadOfUtc() {
+        var checkIn = service.recordCheckIn(participant.getId(),habit.getId(),today.plusDays(1),1,ZoneId.of("Europe/Warsaw"));
+        assertEquals(today.plusDays(1),checkIn.getDate());
+    }
+    @Test void anotherParticipantCannotReadOrWriteHabit() {
+        assertThrows(ResponseStatusException.class,()->service.recordCheckIn(-99L,habit.getId(),today,1));
+        assertThrows(ResponseStatusException.class,()->service.getHabitCheckIns(-99L,habit.getId()));
+    }
+    @Test void concurrentDailyReportsDoNotDuplicate() throws Exception {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CountDownLatch start = new CountDownLatch(1);
+            Callable<Void> write = () -> { start.await(); service.recordCheckIn(participant.getId(),habit.getId(),today,10); return null; };
+            var a = executor.submit(write); var b = executor.submit(write); start.countDown();
+            a.get(10,TimeUnit.SECONDS); b.get(10,TimeUnit.SECONDS);
+        }
+        var entries = service.getHabitCheckIns(participant.getId(),habit.getId());
+        assertEquals(1,entries.size()); assertEquals(10,entries.getFirst().getValue());
     }
 }
