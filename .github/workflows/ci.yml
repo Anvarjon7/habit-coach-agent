@@ -41,4 +41,12 @@ jobs:
           DB_URL: jdbc:postgresql://localhost:5432/habit_coach
           DB_USERNAME: habit
           DB_PASSWORD: habit
-        run: ./mvnw test
+        run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Verify application context against PostgreSQL
+        run: >-
+          ./mvnw --batch-mode --no-transfer-progress
+          -Dspring.datasource.url=jdbc:postgresql://localhost:5432/habit_coach
+          -Dspring.datasource.username=habit
+          -Dspring.datasource.password=habit
+          -Dtest=HabitCoachAgentApplicationTests test
