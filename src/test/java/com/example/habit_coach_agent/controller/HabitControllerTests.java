@@ -31,6 +31,24 @@ class HabitControllerTests {
     private HabitService habitService;
 
     @Test
+    void invalidProgressIsRejectedBeforeCallingService() throws Exception {
+        mockMvc.perform(post("/api/participants/1/habits/10/check-ins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\":0}"))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(habitService);
+    }
+
+    @Test
+    void blankHabitIsRejected() throws Exception {
+        mockMvc.perform(post("/api/participants/1/habits")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\" \"}"))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(habitService);
+    }
+
+    @Test
     void getParticipantHabitsReturnsHabitWithStreak() throws Exception {
         Habit habit = new Habit();
         habit.setId(10L);
