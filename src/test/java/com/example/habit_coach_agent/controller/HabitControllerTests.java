@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(HabitController.class)
+@WebMvcTest(controllers = HabitController.class, properties = "coach.internal-api-key=test-internal-key")
 class HabitControllerTests {
 
     @Autowired
@@ -32,7 +32,7 @@ class HabitControllerTests {
 
     @Test
     void invalidProgressIsRejectedBeforeCallingService() throws Exception {
-        mockMvc.perform(post("/api/participants/1/habits/10/check-ins")
+        mockMvc.perform(post("/api/participants/1/habits/10/check-ins").header("X-Internal-Api-Key", "test-internal-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"value\":0}"))
                 .andExpect(status().isBadRequest());
@@ -41,7 +41,7 @@ class HabitControllerTests {
 
     @Test
     void blankHabitIsRejected() throws Exception {
-        mockMvc.perform(post("/api/participants/1/habits")
+        mockMvc.perform(post("/api/participants/1/habits").header("X-Internal-Api-Key", "test-internal-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" \"}"))
                 .andExpect(status().isBadRequest());
@@ -59,7 +59,7 @@ class HabitControllerTests {
 
         when(habitService.getParticipantHabits(1L)).thenReturn(List.of(habit));
 
-        mockMvc.perform(get("/api/participants/1/habits"))
+        mockMvc.perform(get("/api/participants/1/habits").header("X-Internal-Api-Key", "test-internal-key"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(10))
                 .andExpect(jsonPath("$[0].name").value("Reading 30 mins"))
@@ -78,7 +78,7 @@ class HabitControllerTests {
         when(habitService.recordCheckIn(eq(1L), eq(10L), any(LocalDate.class), eq(1)))
                 .thenReturn(checkIn);
 
-        mockMvc.perform(post("/api/participants/1/habits/10/check-ins")
+        mockMvc.perform(post("/api/participants/1/habits/10/check-ins").header("X-Internal-Api-Key", "test-internal-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

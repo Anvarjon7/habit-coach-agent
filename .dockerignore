@@ -1,0 +1,17 @@
+.git
+.github
+.idea
+.vscode
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+target
+work
+outputs
+*.log

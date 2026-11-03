@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ParticipantController.class)
+@WebMvcTest(controllers = ParticipantController.class, properties = "coach.internal-api-key=test-internal-key")
 class ParticipantControllerTests {
 
     @Autowired
@@ -33,7 +33,7 @@ class ParticipantControllerTests {
         participant.setActive(true);
         when(participantService.getParticipantById(1L)).thenReturn(Optional.of(participant));
 
-        mockMvc.perform(get("/api/participants/1"))
+        mockMvc.perform(get("/api/participants/1").header("X-Internal-Api-Key", "test-internal-key"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.telegramUsername").value("habit_user"))
@@ -45,7 +45,7 @@ class ParticipantControllerTests {
     void getParticipantByIdReturnsNotFoundWhenItDoesNotExist() throws Exception {
         when(participantService.getParticipantById(99L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/participants/99"))
+        mockMvc.perform(get("/api/participants/99").header("X-Internal-Api-Key", "test-internal-key"))
                 .andExpect(status().isNotFound());
     }
 }

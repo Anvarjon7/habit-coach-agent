@@ -49,4 +49,51 @@ jobs:
           -Dspring.datasource.url=jdbc:postgresql://localhost:5432/habit_coach
           -Dspring.datasource.username=habit
           -Dspring.datasource.password=habit
-          -Dtest=HabitCoachAgentApplicationTests,HabitServiceTest test
+          test
+
+  container:
+    needs: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: habit_coach_container
+          POSTGRES_USER: habit
+          POSTGRES_PASSWORD: habit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U habit -d habit_coach_container"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned non-root release image
+        run: docker build --pull -t habit-coach:ci .
+      - name: Start and verify container
+        run: |
+          docker run --detach --name coach --network host \
+            -e DB_URL=jdbc:postgresql://localhost:5432/habit_coach_container \
+            -e DB_USERNAME=habit -e DB_PASSWORD=habit \
+            -e PORT=18081 -e COACH_INTERNAL_API_KEY=ci-internal-key \
+            habit-coach:ci
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:18081/actuator/health/readiness; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          test "$(docker exec coach id -u)" = 10001
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:18081/api/participants)" = 401
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H 'X-Internal-Api-Key: ci-internal-key' http://localhost:18081/api/participants)" = 200
+      - name: Container diagnostics
+        if: failure()
+        run: docker logs coach || true
+      - name: Stop test container
+        if: always()
+        run: docker rm --force coach || true

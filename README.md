@@ -1,106 +1,44 @@
 # Habit Coach Agent
 
-> An evidence-based habit formation and tracking platform designed specifically for teenagers and youth.
+A Telegram AI coach for participant-chosen daily habits, natural conversation, and optional written or spoken encouragement. There is no product age boundary. Personalization uses stated interests, language, timezone and preferences.
 
----
+## Implemented foundation
 
-## 🎯 Purpose & Scope
+- Java 21 / Spring Boot / PostgreSQL with versioned Flyway migrations.
+- Reliable daily progress: absolute totals, date validation, database locking, unique daily entries and history-based streaks.
+- Group-specific participant identities, opt-in participation and sharing, authenticated webhook and durable queues.
+- Text/audio preferences, read-only coaching provider, incoming OGG voice transcription and Opus speech generation.
+- Opt-in reminders, quiet hours, reflection and weekly consistency challenges.
+- Internal REST authentication, health checks and a non-root container definition.
 
-The Habit Coach Agent provides structured routine building, streak tracking, and daily accountability for teenagers (ages 14–18). The core focus is establishing lifelong positive habits:
-- 🏃 **Fitness & Athletics** (e.g. daily morning running)
-- 📚 **Intellectual Growth** (e.g. daily 30-minute reading)
-- 🌍 **Language Acquisition** (e.g. vocabulary drills and conversational practice)
+This is implementation work under review, not a claim of a deployed production service. Live provider/Telegram acceptance, cost configuration and deployment gates are documented below.
 
----
+## Quick start
 
-## 🛠️ Tech Stack & Architecture
+Install Java 21, then start PostgreSQL (for example `docker compose up -d postgres`). Copy `.env.example` to `.env.local` and fill it locally. Do not commit credentials. On Windows, `scripts/run-local.ps1` reads this file without executing its contents. On other systems set the environment variables through your shell or secret manager, then run `./mvnw spring-boot:run`.
 
-- **Language & Runtime:** Java 21
-- **Framework:** Spring Boot 4.1.1
-- **Data & Persistence:** Spring Data JPA, Hibernate, PostgreSQL 17
-- **Validation:** Jakarta Validation
-- **Containerization:** Docker Compose
-- **Build & CI:** Maven Wrapper, GitHub Actions
+Run `./mvnw --batch-mode --no-transfer-progress verify` (Windows: `mvnw.cmd`). Fast tests use isolated H2. CI additionally checks migrations and integration tests on PostgreSQL. Main application uses PostgreSQL and validates the migrated schema; it never silently updates existing tables.
 
-### Domain Model
+Telegram is disabled until configured. The default coaching provider supplies basic written tips without paid API calls; it explicitly reports that audio is unavailable. Configure supported model IDs, a provider key, usage controls and explicit participant consent before live AI processing.
 
-```text
-┌─────────────────┐       1..*      ┌───────────────┐       1..*      ┌────────────────┐
-│   Participant   │────────────────>│     Habit     │────────────────>│  HabitCheckIn  │
-│-----------------│                 │---------------│                 │----------------│
-│ id              │                 │ id            │                 │ id             │
-│ firstName       │                 │ name          │                 │ date           │
-│ telegramUsername│                 │ description   │                 │ value          │
-│ active          │                 │ active        │                 │ completed      │
-│                 │                 │ currentStreak │                 └────────────────┘
-│                 │                 │ lastCheckIn   │
-└─────────────────┘                 └───────────────┘
-```
+## Telegram usage
 
----
+Add the named AI bot to your group. Use `/join`, then `/habit Read one page`. `/progress` lists your habit IDs; `/done HABIT_ID TOTAL` sets today's total. Repeating a total does not add credit.
 
-## ⚡ API Reference
+Use `/format text` or `/format audio`, `/timezone Europe/Warsaw`, and `/interests reading, football` to personalize interaction. `/ai on` opts into sending relevant messages and voice to the configured AI provider; `/ai off` stops future processing. Address the bot explicitly in a group to request conversational coaching. Voice interpretation does not automatically change progress.
 
-### Participants
+`/share on` opts into group summaries; `/summary` shows opted-in members. `/challenge HABIT_ID` joins a weekly challenge, `/leaderboard` shows shared scores, and `/challenge off` leaves. Scores count completed days of one chosen habit, not raw volume.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/participants` | Register a new participant |
-| `GET` | `/api/participants/{id}` | Fetch participant details |
-| `GET` | `/api/participants` | List all active participants |
+`/remind HH:mm` opts into daily reminders and Sunday reflections; `/quiet 21:00 08:00` defines quiet hours. `/pause`, `/resume` and `/remind off` control scheduled messages. `/leave` pauses participation; `/forget confirm` deletes the participant's stored data for this chat. Existing Telegram messages and provider retention are governed separately.
 
-### Habits & Streaks
+## Read before deployment
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/participants/{participantId}/habits` | Create a new habit for a participant |
-| `GET` | `/api/participants/{participantId}/habits` | List habits with `currentStreak` and `lastCheckInDate` |
-| `GET` | `/api/participants/{participantId}/habits/{habitId}` | Fetch habit by ID |
-| `POST` | `/api/participants/{participantId}/habits/{habitId}/check-ins` | Record daily check-in and update consecutive streak |
-| `GET` | `/api/participants/{participantId}/habits/{habitId}/check-ins` | List historical check-ins ordered by date |
+- [Implementation plan and decisions](docs/implementation-plan.md)
+- [Progress semantics and existing-database migration](docs/database-and-progress.md)
+- [Telegram configuration, privacy and delivery limits](docs/telegram.md)
+- [Text/audio provider configuration and limitations](docs/coaching.md)
+- [Deployment, backup and rollback](docs/deployment.md)
+- [Reminders, competition, monitoring and retention](docs/engagement-and-operations.md)
+- [Contribution and review workflow](CONTRIBUTING.md)
 
-#### Check-in Request Payload
-```json
-{
-  "date": "2026-10-01",
-  "value": 1
-}
-```
-
----
-
-## 🚀 Running Locally
-
-### 1. Start PostgreSQL (Docker)
-
-```bash
-docker compose up -d postgres
-```
-
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` or use default fallbacks:
-
-```bash
-DB_URL=jdbc:postgresql://localhost:5432/habit_coach
-DB_USERNAME=habit
-DB_PASSWORD=habit
-```
-
-### 3. Run Tests & Start Application
-
-```bash
-# Run unit & integration test suite
-./mvnw clean test
-
-# Start the Spring Boot server
-./mvnw spring-boot:run
-```
-
-Server runs on port `8081` by default.
-
----
-
-## 🤝 Engineering Team Governance
-
-This codebase is managed and reviewed by the autonomous [Zuck Engineering Team Platform](https://github.com/Anvarjon7/engineering-team).
+REST `/api/participants` operations are server-to-server and require `X-Internal-Api-Key`. They are not a public client API; the Telegram adapter resolves each sender's membership instead of accepting a caller-supplied participant identity. Shared group replies are visible to everyone in the chat regardless of summary preference.
