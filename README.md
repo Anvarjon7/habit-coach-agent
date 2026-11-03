@@ -38,6 +38,7 @@ Use `/format text` or `/format audio`, `/timezone Europe/Warsaw`, and `/interest
 - [Telegram configuration, privacy and delivery limits](docs/telegram.md)
 - [Text/audio provider configuration and limitations](docs/coaching.md)
 - [Deployment, backup and rollback](docs/deployment.md)
+- [Live pilot acceptance and coaching evaluation](docs/pilot-acceptance.md)
 - [Reminders, competition, monitoring and retention](docs/engagement-and-operations.md)
 - [Contribution and review workflow](CONTRIBUTING.md)
 
