@@ -4,6 +4,9 @@ import com.example.habit_coach_agent.entity.Participant;
 import com.example.habit_coach_agent.service.ParticipantService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -18,7 +21,10 @@ public class ParticipantController {
     }
 
     @PostMapping
-    public Participant createParticipant(@RequestBody Participant participant){
+    public Participant createParticipant(@Valid @RequestBody CreateParticipant request){
+        Participant participant = new Participant();
+        participant.setFirstName(request.firstName());
+        participant.setTelegramUsername(request.telegramUsername());
         return participantService.createParticipant(participant);
     }
 
@@ -33,4 +39,6 @@ public class ParticipantController {
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
+    public record CreateParticipant(@NotBlank @Size(max=100) String firstName,
+                                    @Size(max=255) String telegramUsername) {}
 }

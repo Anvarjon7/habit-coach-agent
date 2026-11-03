@@ -17,12 +17,13 @@ public class ParticipantService {
     }
 
     public Participant createParticipant(Participant participant) {
+        participant.setId(null);
         participant.setActive(true);
         return participantRepository.save(participant);
     }
 
     public List<Participant> getAllParticipants() {
-        return participantRepository.findAll();
+        return participantRepository.findByActiveTrue();
     }
 
     public Optional<Participant> getParticipantById(Long id) {
