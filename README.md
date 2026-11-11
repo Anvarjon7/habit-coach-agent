@@ -37,6 +37,7 @@ Use `/format text` or `/format audio`, `/timezone Europe/Warsaw`, and `/interest
 - [Progress semantics and existing-database migration](docs/database-and-progress.md)
 - [Telegram configuration, privacy and delivery limits](docs/telegram.md)
 - [Text/audio provider configuration and limitations](docs/coaching.md)
+- [Reviewed coaching techniques and evidence limits](docs/coaching-evidence.md)
 - [Deployment, backup and rollback](docs/deployment.md)
 - [Live pilot acceptance and coaching evaluation](docs/pilot-acceptance.md)
 - [Reminders, competition, monitoring and retention](docs/engagement-and-operations.md)
