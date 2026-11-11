@@ -6,9 +6,13 @@ on:
       - "main"
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -27,21 +31,28 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           java-version: "21"
           distribution: "temurin"
           cache: maven
+
+      - name: Install audio encoder for integration tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
 
       - name: Run tests
         env:
           DB_URL: jdbc:postgresql://localhost:5432/habit_coach
           DB_USERNAME: habit
           DB_PASSWORD: habit
-        run: ./mvnw --batch-mode --no-transfer-progress verify
+        run: ./mvnw --batch-mode --no-transfer-progress -Dcoach.test.require-ffmpeg=true verify
 
       - name: Verify migrations and progress concurrency against PostgreSQL
         run: >-
@@ -54,6 +65,7 @@ jobs:
   container:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17
@@ -69,9 +81,19 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build pinned non-root release image
         run: docker build --pull -t habit-coach:ci .
+      - name: Verify runtime Opus encoding and decoding
+        run: |
+          docker run --rm --entrypoint ffmpeg habit-coach:ci \
+            -nostdin -hide_banner -loglevel error -f lavfi -i anullsrc=r=24000:cl=mono \
+            -t 0.1 -sample_fmt s16 -c:a libopus -f ogg pipe:1 > /tmp/coach-codec.ogg
+          test "$(head -c 4 /tmp/coach-codec.ogg)" = OggS
+          docker run --rm -i --entrypoint ffmpeg habit-coach:ci \
+            -hide_banner -loglevel error -i pipe:0 -f null - < /tmp/coach-codec.ogg
       - name: Start and verify container
         run: |
           docker run --detach --name coach --network host \
@@ -91,6 +113,47 @@ jobs:
           test "$(docker exec coach id -u)" = 10001
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:18081/api/participants)" = 401
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H 'X-Internal-Api-Key: ci-internal-key' http://localhost:18081/api/participants)" = 200
+      - name: Scan OS and application dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: image
+          image-ref: habit-coach:ci
+          scanners: vuln
+          vuln-type: os,library
+          format: json
+          output: trivy-report.json
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+          timeout: 10m
+      - name: Retain complete vulnerability report
+        if: always() && hashFiles('trivy-report.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: container-vulnerabilities-${{ github.sha }}
+          path: trivy-report.json
+          retention-days: 14
+          if-no-files-found: error
+      - name: Block fixable high and critical vulnerabilities
+        run: |
+          python3 - <<'PY'
+          import collections, json, os
+          from pathlib import Path
+          report = json.loads(Path('trivy-report.json').read_text())
+          findings = [finding for result in report.get('Results', []) for finding in result.get('Vulnerabilities', [])]
+          blocking = [finding for finding in findings if finding.get('Severity') in ('HIGH', 'CRITICAL') and finding.get('FixedVersion', '').strip()]
+          counts = collections.Counter(finding.get('Severity', 'UNKNOWN') for finding in findings)
+          summary = ['### Container vulnerability scan', '', '| Severity | Findings |', '| --- | ---: |']
+          summary += [f'| {severity} | {counts[severity]} |' for severity in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN')]
+          summary += ['', f'Fixable HIGH/CRITICAL findings blocking this build: **{len(blocking)}**.', 'The attached JSON includes unfixed findings too; a passing gate does not mean zero vulnerabilities.']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write('\n'.join(summary) + '\n')
+          print('\n'.join(summary))
+          for finding in blocking:
+              print(f"{finding['VulnerabilityID']}: {finding['PkgName']} {finding['InstalledVersion']} -> {finding['FixedVersion']}")
+          raise SystemExit(1 if blocking else 0)
+          PY
       - name: Container diagnostics
         if: failure()
         run: docker logs coach || true

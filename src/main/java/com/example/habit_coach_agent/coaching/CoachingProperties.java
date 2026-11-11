@@ -11,11 +11,13 @@ public class CoachingProperties {
     private String speechModel;
     private String transcriptionModel;
     private String voice;
+    private String ffmpegExecutable = "ffmpeg";
     private Duration timeout = Duration.ofSeconds(30);
     private int maxInputChars = 4096;
     private int maxContextChars = 8192;
     private int maxOutputChars = 2000;
     private int maxOutputTokens = 800;
+    private int maxSpeechOutputTokens = 4096;
     private int maxAudioBytes = 5 * 1024 * 1024;
     private int maxResponseBytes = 8 * 1024 * 1024;
     private int maxConcurrentRequests = 2;
@@ -24,9 +26,12 @@ public class CoachingProperties {
         if (timeout == null || timeout.toMillis() < 100 || timeout.compareTo(Duration.ofSeconds(120)) > 0
                 || maxInputChars < 1 || maxInputChars > 16000 || maxContextChars < 1 || maxContextChars > 32000
                 || maxOutputChars < 1 || maxOutputChars > 4000 || maxOutputTokens < 16 || maxOutputTokens > 4096
+                || maxSpeechOutputTokens < 16 || maxSpeechOutputTokens > 4096
                 || maxAudioBytes < 32 || maxAudioBytes > 10 * 1024 * 1024
                 || maxResponseBytes < 32 || maxResponseBytes > 16 * 1024 * 1024
-                || maxConcurrentRequests < 1 || maxConcurrentRequests > 8) {
+                || maxConcurrentRequests < 1 || maxConcurrentRequests > 8
+                || ffmpegExecutable == null || ffmpegExecutable.isBlank() || ffmpegExecutable.length() > 512
+                || ffmpegExecutable.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Invalid coach.ai limits.");
         }
         if (enabled && (apiKey == null || apiKey.isBlank() || apiKey.length() > 512
@@ -41,6 +46,8 @@ public class CoachingProperties {
         return value != null && value.matches("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}");
     }
 
+    public String getFfmpegExecutable() { return ffmpegExecutable; }
+    public void setFfmpegExecutable(String value) { ffmpegExecutable = value; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean value) { enabled = value; }
     public String getApiKey() { return apiKey; }
@@ -61,6 +68,8 @@ public class CoachingProperties {
     public void setMaxContextChars(int value) { maxContextChars = value; }
     public int getMaxOutputChars() { return maxOutputChars; }
     public void setMaxOutputChars(int value) { maxOutputChars = value; }
+    public int getMaxSpeechOutputTokens() { return maxSpeechOutputTokens; }
+    public void setMaxSpeechOutputTokens(int value) { maxSpeechOutputTokens = value; }
     public int getMaxOutputTokens() { return maxOutputTokens; }
     public void setMaxOutputTokens(int value) { maxOutputTokens = value; }
     public int getMaxAudioBytes() { return maxAudioBytes; }

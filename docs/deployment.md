@@ -8,6 +8,8 @@ Use a managed container service with a public HTTPS endpoint and a private Postg
 
 The Dockerfile builds and tests with the repository Maven wrapper under Java 21, then copies only the executable jar into a Java 21 runtime. The process runs as UID/GID 10001 and takes its port from application configuration. Both official Eclipse Temurin base images are pinned to manifest digests read from Docker Hub on 2 November 2026. For a production release, record the tested application-image digest, scan the image, and retain the previous image for rollback. Review dependency and base-image patches regularly; a pinned image does not update itself.
 
+The runtime also contains FFmpeg with libopus for converting Realtime speech to Telegram voice notes. CI exercises actual encoding/decoding and scans both OS packages and Java dependencies using a pinned Trivy release. The full JSON report is retained for 14 days; fixable HIGH/CRITICAL findings fail the build. Unfixed and lower-severity findings remain visible and require release review. A passing scan gate does not mean the image has no vulnerabilities. FFmpeg is installed from the base distribution's package repository during the build; record the resulting application-image digest for repeatable deployment.
+
 ```sh
 docker build --pull -t habit-coach:RELEASE_ID .
 ```
