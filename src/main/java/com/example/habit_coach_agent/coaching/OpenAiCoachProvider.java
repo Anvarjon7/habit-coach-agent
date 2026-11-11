@@ -18,16 +18,22 @@ public final class OpenAiCoachProvider implements CoachProvider {
     private final JsonMapper mapper;
     private final ProviderHttpTransport transport;
     private final Semaphore permits;
+    private final SpeechGenerator speech;
 
     public OpenAiCoachProvider(CoachingProperties properties, JsonMapper mapper) {
         this(properties, mapper, new LimitedHttpTransport(properties.getTimeout()));
     }
 
     OpenAiCoachProvider(CoachingProperties properties, JsonMapper mapper, ProviderHttpTransport transport) {
+        this(properties, mapper, transport, new RealtimeSpeechGenerator(properties, mapper));
+    }
+
+    OpenAiCoachProvider(CoachingProperties properties, JsonMapper mapper, ProviderHttpTransport transport, SpeechGenerator speech) {
         properties.validate();
         this.properties = properties;
         this.mapper = mapper;
         this.transport = transport;
+        this.speech = speech;
         permits = new Semaphore(properties.getMaxConcurrentRequests());
     }
 
@@ -59,11 +65,12 @@ public final class OpenAiCoachProvider implements CoachProvider {
     @Override
     public byte[] speak(String text) {
         CatalogCoachProvider.checkText(text, properties.getMaxOutputChars(), false);
-        byte[] body = json(Map.of("model", properties.getSpeechModel(), "voice", properties.getVoice(),
-                "input", text, "response_format", "opus"));
-        byte[] audio = send("audio/speech", "application/json", body, properties.getMaxResponseBytes());
-        if (!oggHeader(audio) || !containsOpusHeader(audio)) throw failure();
-        return audio;
+        if (!permits.tryAcquire()) throw new CoachProviderException(CoachProviderException.Reason.BUSY);
+        try {
+            byte[] audio = speech.speak(text);
+            if (audio == null || audio.length > properties.getMaxResponseBytes() || !oggHeader(audio) || !containsOpusHeader(audio)) throw failure();
+            return audio;
+        } finally { permits.release(); }
     }
 
     @Override

@@ -45,17 +45,15 @@ class CoachProviderTests {
     }
 
     @Test
-    void speechRequestsOpusAndReturnsOggBytes() {
+    void speechDelegatesToRealtimeAndReturnsValidatedOggBytes() {
         byte[] audio = ogg();
         FakeTransport http = new FakeTransport(200, audio);
-        assertArrayEquals(audio, new OpenAiCoachProvider(config(), MAPPER, http).speak("Try one page."));
-        JsonNode body = MAPPER.readTree(requestBody(http.request));
-        assertEquals("https://api.openai.com/v1/audio/speech", http.request.uri().toString());
-        assertEquals("opus", body.path("response_format").asText());
-        assertEquals("configured-voice", body.path("voice").asText());
-        assertEquals("Try one page.", body.path("input").asText());
+        OpenAiCoachProvider provider = new OpenAiCoachProvider(config(), MAPPER, http, text -> {
+            assertEquals("Try one page.", text); return audio;
+        });
+        assertArrayEquals(audio, provider.speak("Try one page."));
+        assertEquals(0, http.calls);
     }
-
     @Test
     void transcriptionSendsMultipartOggWithConfiguredModel() {
         FakeTransport http = new FakeTransport(200, "{\"text\":\"I read two pages.\"}".getBytes(StandardCharsets.UTF_8));
@@ -120,12 +118,12 @@ class CoachProviderTests {
     void rejectsUnexpectedSpeechFormatsAndOversizedResponse() {
         FakeTransport wrongFormat = new FakeTransport(200, "mp3 content".getBytes(StandardCharsets.UTF_8));
         assertReason(CoachProviderException.Reason.PROVIDER_ERROR,
-                () -> new OpenAiCoachProvider(config(), MAPPER, wrongFormat).speak("hi"));
+                () -> new OpenAiCoachProvider(config(), MAPPER, wrongFormat, text -> "mp3 content".getBytes(StandardCharsets.UTF_8)).speak("hi"));
         CoachingProperties properties = config();
         properties.setMaxResponseBytes(32);
         FakeTransport tooLarge = new FakeTransport(200, ogg());
         assertReason(CoachProviderException.Reason.PROVIDER_ERROR,
-                () -> new OpenAiCoachProvider(properties, MAPPER, tooLarge).speak("hi"));
+                () -> new OpenAiCoachProvider(properties, MAPPER, tooLarge, text -> ogg()).speak("hi"));
     }
 
     @Test
